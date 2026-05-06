@@ -1,0 +1,208 @@
+@import "tailwindcss";
+
+/* ============================================================================
+   DESIGN TOKENS
+   ============================================================================ */
+:root {
+  /* Background & surfaces */
+  --bg-primary: #0a0a0f;
+  --bg-surface: rgba(20, 20, 30, 0.65);
+  --bg-glass: rgba(255, 255, 255, 0.06);
+  --bg-glass-hover: rgba(255, 255, 255, 0.1);
+  --bg-glass-border: rgba(255, 255, 255, 0.1);
+
+  /* Text */
+  --text-primary: #f0ece4;
+  --text-secondary: rgba(240, 236, 228, 0.6);
+  --text-muted: rgba(240, 236, 228, 0.35);
+
+  /* Accent */
+  --accent-gold: #d4a574;
+  --accent-warm: #c9956b;
+  --accent-rose: #b07aa1;
+
+  /* Turntable */
+  --turntable-body: #1a1a24;
+  --turntable-platter: #111118;
+  --turntable-felt: #1c1c28;
+  --vinyl-black: #0d0d0d;
+  --vinyl-groove: rgba(255, 255, 255, 0.03);
+  --vinyl-shine: rgba(255, 255, 255, 0.06);
+  --tonearm-silver: #b0b0b8;
+  --tonearm-dark: #3a3a44;
+
+  /* Spacing */
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  /* Typography */
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* ============================================================================
+   BASE RESET
+   ============================================================================ */
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  width: 100%;
+  overflow: hidden;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  overscroll-behavior: none;
+}
+
+/* ============================================================================
+   TYPOGRAPHY
+   ============================================================================ */
+.font-display {
+  font-family: 'Outfit', sans-serif;
+}
+
+.font-body {
+  font-family: 'Inter', sans-serif;
+}
+
+/* ============================================================================
+   GLASSMORPHISM UTILITIES
+   ============================================================================ */
+.glass {
+  background: var(--bg-glass);
+  backdrop-filter: blur(20px) saturate(1.3);
+  -webkit-backdrop-filter: blur(20px) saturate(1.3);
+  border: 1px solid var(--bg-glass-border);
+}
+
+.glass-heavy {
+  background: var(--bg-surface);
+  backdrop-filter: blur(40px) saturate(1.5);
+  -webkit-backdrop-filter: blur(40px) saturate(1.5);
+  border: 1px solid var(--bg-glass-border);
+}
+
+/* ============================================================================
+   KEYFRAMES
+   ============================================================================ */
+@keyframes spin-record {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes tonearm-rest-to-play {
+  from { transform: rotate(-30deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes tonearm-play-to-rest {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(-30deg); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 0.8; }
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-6px); }
+}
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+/* ============================================================================
+   SCROLLBAR HIDE
+   ============================================================================ */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ============================================================================
+   VINYL GROOVES PATTERN
+   ============================================================================ */
+.vinyl-grooves {
+  background: repeating-radial-gradient(
+    circle at center,
+    transparent 0px,
+    transparent 2px,
+    var(--vinyl-groove) 2px,
+    var(--vinyl-groove) 3px
+  );
+}
+
+.vinyl-shine-effect {
+  background: conic-gradient(
+    from 0deg,
+    transparent 0%,
+    var(--vinyl-shine) 10%,
+    transparent 20%,
+    transparent 45%,
+    var(--vinyl-shine) 55%,
+    transparent 65%,
+    transparent 90%,
+    var(--vinyl-shine) 100%
+  );
+}
+
+/* ============================================================================
+   TOUCH OPTIMIZATION
+   ============================================================================ */
+.touch-target {
+  min-width: 44px;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* ============================================================================
+   TRANSITIONS
+   ============================================================================ */
+.transition-smooth {
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ============================================================================
+   DROP ZONE HIGHLIGHT
+   ============================================================================ */
+.drop-zone-active {
+  box-shadow: 0 0 0 2px var(--accent-gold),
+              0 0 30px rgba(212, 165, 116, 0.2),
+              inset 0 0 30px rgba(212, 165, 116, 0.05);
+}
