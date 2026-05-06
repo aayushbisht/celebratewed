@@ -45,6 +45,28 @@ export function useSlideshow(photoUrls: string[], defaultInterval = 4000) {
     return clearTimer;
   }, [isPaused, currentIndex, photoUrls.length, scheduleNext, clearTimer]);
 
+  // ---- Preload all album photos when the photo list changes ----
+  useEffect(() => {
+    if (photoUrls.length === 0) return;
+
+    // Preload every photo in the album in the background
+    photoUrls.forEach((url) => {
+      const img = new Image();
+      img.src = url;
+    });
+  }, [photoUrls]);
+
+  // ---- Preload the next 2 photos whenever index changes ----
+  useEffect(() => {
+    if (photoUrls.length <= 1) return;
+
+    for (let offset = 1; offset <= 2; offset++) {
+      const idx = (currentIndex + offset) % photoUrls.length;
+      const img = new Image();
+      img.src = photoUrls[idx];
+    }
+  }, [currentIndex, photoUrls]);
+
   const next = useCallback(() => {
     setPrevIndex(currentIndex);
     setIsTransitioning(true);

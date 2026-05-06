@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Heart, ImageIcon } from 'lucide-react';
+import { Heart, ImageIcon, Loader2 } from 'lucide-react';
 
 interface PhotoFrameProps {
   currentUrl: string;
@@ -12,14 +12,17 @@ interface PhotoFrameProps {
 }
 
 /**
- * A prominent, framed photo viewer with flicker-free cross-fade.
+ * Flicker-free, load-safe cross-fade photo viewer.
  *
- * How it works:
- * - Two layers (A and B) each hold a stable image src.
- * - The "active" layer is fully opaque; the other is transparent.
- * - When a new photo URL arrives, we load it onto the HIDDEN layer first.
- * - Only after the hidden layer's <img> fires onLoad do we toggle opacity.
- * - This guarantees no flash of an unloaded image.
+ * Strategy:
+ * 1. Two img layers (A and B) — each keeps a STABLE src.
+ * 2. When a new URL arrives, we set it on the HIDDEN layer's src.
+ * 3. We do NOT toggle opacity yet — the hidden layer is still transparent.
+ * 4. The hidden layer's <img onLoad> fires once the browser has decoded it.
+ * 5. Only THEN do we toggle activeLayer to cross-fade.
+ *
+ * This means: no black frames, no flicker. If the image is slow to load,
+ * the current photo stays visible until the next one is fully ready.
  */
 export function PhotoFrame({
   currentUrl,
@@ -29,57 +32,74 @@ export function PhotoFrame({
   currentIndex,
   totalPhotos,
 }: PhotoFrameProps) {
-  // Which layer is currently visible: 'A' or 'B'
   const [activeLayer, setActiveLayer] = useState<'A' | 'B'>('A');
   const [srcA, setSrcA] = useState('');
   const [srcB, setSrcB] = useState('');
   const [readyToShow, setReadyToShow] = useState(false);
-  const isFirstLoad = useRef(true);
-  const lastUrl = useRef('');
+  const [isLoading, setIsLoading] = useState(false);
 
-  // When a new currentUrl arrives, load it onto the hidden layer
+  // Track which layer we're "preparing" (loading onto but not showing yet)
+  const pendingLayerRef = useRef<'A' | 'B' | null>(null);
+  const lastUrl = useRef('');
+  const isFirstLoad = useRef(true);
+
+  // Step 1: When a new URL arrives, put it on the hidden layer (don't toggle yet)
   useEffect(() => {
     if (!currentUrl || currentUrl === lastUrl.current) return;
     lastUrl.current = currentUrl;
 
-    // On first load, just put it directly on layer A (no cross-fade needed)
     if (isFirstLoad.current) {
+      // First photo — load onto layer A, show loading state until it loads
       isFirstLoad.current = false;
       setSrcA(currentUrl);
-      setActiveLayer('A');
-      setReadyToShow(true);
+      pendingLayerRef.current = 'A';
+      setIsLoading(true);
       return;
     }
 
-    // Pre-load the image in JS before touching any layer src
-    const img = new Image();
-    img.src = currentUrl;
-    const targetUrl = currentUrl; // capture in closure
+    // Determine the hidden layer and set its src
+    if (activeLayer === 'A') {
+      // Layer B is hidden — load new image there
+      setSrcB(currentUrl);
+      pendingLayerRef.current = 'B';
+    } else {
+      // Layer A is hidden — load new image there
+      setSrcA(currentUrl);
+      pendingLayerRef.current = 'A';
+    }
+    setIsLoading(true);
+  }, [currentUrl]); // eslint-disable-line react-hooks/exhaustive-deps
+  // intentionally not depending on activeLayer to avoid re-trigger loops
 
-    img.onload = () => {
-      // Image is now cached — safe to set src on the hidden layer
-      setActiveLayer((prevLayer) => {
-        if (prevLayer === 'A') {
-          // Layer B is hidden → set its src, then make it active
-          setSrcB(targetUrl);
-        } else {
-          // Layer A is hidden → set its src, then make it active
-          setSrcA(targetUrl);
-        }
-        // Toggle: the layer we just loaded onto becomes active
-        return prevLayer === 'A' ? 'B' : 'A';
-      });
-    };
-  }, [currentUrl]);
+  // Step 2: Called when a layer's <img> finishes loading in the DOM
+  const handleLayerALoad = useCallback(() => {
+    if (pendingLayerRef.current === 'A') {
+      pendingLayerRef.current = null;
+      setActiveLayer('A');
+      setReadyToShow(true);
+      setIsLoading(false);
+    }
+  }, []);
 
-  // Reset when album changes
+  const handleLayerBLoad = useCallback(() => {
+    if (pendingLayerRef.current === 'B') {
+      pendingLayerRef.current = null;
+      setActiveLayer('B');
+      setReadyToShow(true);
+      setIsLoading(false);
+    }
+  }, []);
+
+  // Reset when album deactivates
   useEffect(() => {
     if (!isActive) {
       isFirstLoad.current = true;
       lastUrl.current = '';
+      pendingLayerRef.current = null;
       setSrcA('');
       setSrcB('');
       setReadyToShow(false);
+      setIsLoading(false);
     }
   }, [isActive]);
 
@@ -105,35 +125,47 @@ export function PhotoFrame({
         }}
       >
         <AnimatePresence mode="wait">
-          {isActive && readyToShow ? (
+          {isActive ? (
             <>
-              {/* Layer A — holds its src stably */}
+              {/* Layer A */}
               <div
                 className="absolute inset-0 transition-opacity duration-[2000ms] ease-in-out"
-                style={{ opacity: activeLayer === 'A' ? 1 : 0 }}
+                style={{ opacity: activeLayer === 'A' && readyToShow ? 1 : 0 }}
               >
                 {srcA && (
                   <img
                     src={srcA}
                     alt=""
                     className="w-full h-full object-cover"
+                    onLoad={handleLayerALoad}
                   />
                 )}
               </div>
 
-              {/* Layer B — holds its src stably */}
+              {/* Layer B */}
               <div
                 className="absolute inset-0 transition-opacity duration-[2000ms] ease-in-out"
-                style={{ opacity: activeLayer === 'B' ? 1 : 0 }}
+                style={{ opacity: activeLayer === 'B' && readyToShow ? 1 : 0 }}
               >
                 {srcB && (
                   <img
                     src={srcB}
                     alt=""
                     className="w-full h-full object-cover"
+                    onLoad={handleLayerBLoad}
                   />
                 )}
               </div>
+
+              {/* Loading indicator — shows while waiting for first/next photo */}
+              {isLoading && !readyToShow && (
+                <div className="absolute inset-0 flex items-center justify-center z-5">
+                  <Loader2
+                    size={24}
+                    className="text-white/20 animate-spin"
+                  />
+                </div>
+              )}
 
               {/* Subtle bottom gradient for text readability */}
               <div

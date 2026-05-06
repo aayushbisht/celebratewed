@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 
 interface BackgroundSlideshowProps {
   currentUrl: string;
@@ -9,7 +9,7 @@ interface BackgroundSlideshowProps {
 
 /**
  * Full-screen background that cross-fades between two photo layers.
- * Uses stable src per layer — only toggles opacity after image is pre-loaded.
+ * Uses the same two-step load-then-reveal approach as PhotoFrame.
  */
 export function BackgroundSlideshow({
   currentUrl,
@@ -20,9 +20,11 @@ export function BackgroundSlideshow({
   const [activeLayer, setActiveLayer] = useState<'A' | 'B'>('A');
   const [srcA, setSrcA] = useState('');
   const [srcB, setSrcB] = useState('');
+  const pendingLayerRef = useRef<'A' | 'B' | null>(null);
   const isFirstLoad = useRef(true);
   const lastUrl = useRef('');
 
+  // Step 1: Set new URL on the hidden layer (don't reveal yet)
   useEffect(() => {
     if (!currentUrl || currentUrl === lastUrl.current) return;
     lastUrl.current = currentUrl;
@@ -30,30 +32,39 @@ export function BackgroundSlideshow({
     if (isFirstLoad.current) {
       isFirstLoad.current = false;
       setSrcA(currentUrl);
-      setActiveLayer('A');
+      pendingLayerRef.current = 'A';
       return;
     }
 
-    const img = new Image();
-    img.src = currentUrl;
-    const targetUrl = currentUrl;
+    if (activeLayer === 'A') {
+      setSrcB(currentUrl);
+      pendingLayerRef.current = 'B';
+    } else {
+      setSrcA(currentUrl);
+      pendingLayerRef.current = 'A';
+    }
+  }, [currentUrl]); // eslint-disable-line react-hooks/exhaustive-deps
 
-    img.onload = () => {
-      setActiveLayer((prev) => {
-        if (prev === 'A') {
-          setSrcB(targetUrl);
-        } else {
-          setSrcA(targetUrl);
-        }
-        return prev === 'A' ? 'B' : 'A';
-      });
-    };
-  }, [currentUrl]);
+  // Step 2: Reveal only when the <img> onLoad fires
+  const handleLayerALoad = useCallback(() => {
+    if (pendingLayerRef.current === 'A') {
+      pendingLayerRef.current = null;
+      setActiveLayer('A');
+    }
+  }, []);
+
+  const handleLayerBLoad = useCallback(() => {
+    if (pendingLayerRef.current === 'B') {
+      pendingLayerRef.current = null;
+      setActiveLayer('B');
+    }
+  }, []);
 
   useEffect(() => {
     if (!isActive) {
       isFirstLoad.current = true;
       lastUrl.current = '';
+      pendingLayerRef.current = null;
       setSrcA('');
       setSrcB('');
     }
@@ -86,6 +97,7 @@ export function BackgroundSlideshow({
             alt=""
             className="w-full h-full object-cover"
             style={{ filter: 'brightness(0.75) saturate(1.2)' }}
+            onLoad={handleLayerALoad}
           />
         )}
       </div>
@@ -101,6 +113,7 @@ export function BackgroundSlideshow({
             alt=""
             className="w-full h-full object-cover"
             style={{ filter: 'brightness(0.75) saturate(1.2)' }}
+            onLoad={handleLayerBLoad}
           />
         )}
       </div>
